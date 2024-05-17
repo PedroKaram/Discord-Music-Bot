@@ -21,13 +21,17 @@ def run_bot():
     intents.message_content = True
     client = discord.Client(intents=intents)
 
+    # Dicionário para armazenar clientes de voz
     voice_clients = {}
+
+    # Opções de configuração para baixar áudio do YouTube
     yt_dl_options = {"format": "bestaudio/best"}
     ytdl = yt_dlp.YoutubeDL(yt_dl_options)
 
+    # Opções de configuração para o ffmpeg
     ffmpeg_options = {'options': '-vn'}
 
-    # Spotify authentication
+    # Autenticação no Spotify
     spotify_auth_manager = SpotifyOAuth(client_id=SPOTIFY_CLIENT_ID,
                                         client_secret=SPOTIFY_CLIENT_SECRET,
                                         redirect_uri=SPOTIFY_REDIRECT_URI,
