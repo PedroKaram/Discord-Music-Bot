@@ -7,6 +7,11 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from dotenv import load_dotenv
 
+def extract_spotify_track(url):
+    if "track/" in url:
+        return url.split("track/")[1].split("?")[0]
+    return None
+
 def run_bot():
     # Carrega as variáveis de ambiente do arquivo .env
     load_dotenv()
