@@ -1,4 +1,4 @@
-import bot
+import asgard
 
 if __name__ == "__main__":
-    bot.run_bot()
+    asgard.run_bot()
