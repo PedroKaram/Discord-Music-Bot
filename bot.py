@@ -1,60 +1,72 @@
+import discord
 import os
 import asyncio
 import yt_dlp
-import spotipy
-import discord
-from discord.ui import Select, View
+import responses
 from dotenv import load_dotenv
-from spotipy.oauth2 import SpotifyOAuth
+
+async def send_message(message, user_message, is_private):
+    try:
+        response = responses.get_response(user_message)
+        if is_private:
+            await message.author.send(response)
+        else:
+            await message.channel.send(response)
+    
+    except Exception as e:
+        print(e)
 
 def run_bot():
-    # Carrega as variáveis de ambiente do arquivo .env
     load_dotenv()
-    # Variáveis de ambiente
     TOKEN = os.getenv('discord_token')
-    SPOTIFY_CLIENT_ID = os.getenv('spotify_client_id')
-    SPOTIFY_CLIENT_SECRET = os.getenv('spotify_client_secret')
-    SPOTIFY_REDIRECT_URI = os.getenv('spotify_redirect_uri')
-
-    # Configura as credenciais do cliente
     intents = discord.Intents.default()
     intents.message_content = True
     client = discord.Client(intents=intents)
 
-    # Dicionário para armazenar clientes de voz
     voice_clients = {}
-
-    # Opções de configuração para baixar áudio do YouTube
     yt_dl_options = {"format": "bestaudio/best"}
     ytdl = yt_dlp.YoutubeDL(yt_dl_options)
 
-    # Opções de configuração para o ffmpeg
     ffmpeg_options = {'options': '-vn'}
-
-    # Autenticação no Spotify
-    spotify_auth_manager = SpotifyOAuth(client_id=SPOTIFY_CLIENT_ID,
-                                        client_secret=SPOTIFY_CLIENT_SECRET,
-                                        redirect_uri=SPOTIFY_REDIRECT_URI,
-                                        scope="user-read-playback-state,user-modify-playback-state")
-
-    spotify = spotipy.Spotify(auth_manager=spotify_auth_manager)
 
     @client.event
     async def on_ready():
-        print(f'{client.user} está funcionando')
+        print(f'{client.user} is working')
 
     @client.event
     async def on_message(message):
+        if message.author == client.user:
+            return
+        
+        username = str(message.author)
+        user_message = str(message.content)
+        channel = str(message.channel)
+
+        if user_message[0] == '?':
+            user_message = user_message[1:]
+            await send_message(message, user_message, is_private=True)
+        else:
+            await send_message(message, user_message, is_private=False)
+
         if message.content.startswith("?play"):
             try:
-                # Conecta ao canal de voz do autor da mensagem
                 voice_client = await message.author.voice.channel.connect()
                 voice_clients[voice_client.guild.id] = voice_client
             except Exception as e:
                 print(e)
 
-            query = message.content[6:].strip()
-            await play_music(query, message)
+            try:
+                url = message.content.split()[1]
+
+                loop = asyncio.get_event_loop()
+                data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=False))
+
+                song = data['url']
+                player = discord.FFmpegPCMAudio(song, **ffmpeg_options)
+
+                voice_clients[message.guild.id].play(player)
+            except Exception as e:
+                print(e)
 
         if message.content.startswith("?pause"):
             try:
@@ -73,25 +85,4 @@ def run_bot():
                 voice_clients[message.guild.id].stop()
             except Exception as e:
                 print(e)
-
-    async def play_music(query, message):
-        try:
-            # Tenta encontrar a música pelo nome
-            result = spotify.search(q=query, limit=1)
-            if result['tracks']['items']:
-                track = result['tracks']['items'][0]
-                preview_url = track['preview_url']
-                if preview_url:
-                    player = discord.FFmpegPCMAudio(preview_url, **ffmpeg_options)
-                    voice_clients[message.guild.id].play(player)
-                else:
-                    await message.channel.send("Desculpe, não foi possível encontrar uma prévia desta faixa no Spotify.")
-            else:
-                await message.channel.send("Desculpe, não foi possível encontrar informações sobre esta faixa no Spotify.")
-        except Exception as e:
-            print(e)
-
     client.run(TOKEN)
-
-if __name__ == "__main__":
-    run_bot()
